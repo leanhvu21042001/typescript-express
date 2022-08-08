@@ -2,6 +2,9 @@ import * as express from "express";
 import Controller from "../interfaces/controller.interface";
 import Post from "./post.interface";
 import postModel from "./posts.model";
+import PostNotFoundException from "../exceptions/PostNotFoundException";
+import validationMiddleware from "../middleware/validation.middleware";
+import CreatePostDto from "./post.dto";
 
 class PostsController implements Controller {
   public path = "/posts";
@@ -15,9 +18,17 @@ class PostsController implements Controller {
   private initializeRoutes() {
     this.router.get(this.path, this.getAllPosts);
     this.router.get(`${this.path}/:id`, this.getPostById);
-    this.router.patch(`${this.path}/:id`, this.modifyPost);
+    this.router.patch(
+      `${this.path}/:id`,
+      validationMiddleware(CreatePostDto, true),
+      this.modifyPost
+    );
     this.router.delete(`${this.path}/:id`, this.deletePost);
-    this.router.post(this.path, this.createPost);
+    this.router.post(
+      this.path,
+      validationMiddleware(CreatePostDto),
+      this.createPost
+    );
   }
 
   private getAllPosts = async (
@@ -31,21 +42,31 @@ class PostsController implements Controller {
 
   private getPostById = async (
     request: express.Request,
-    response: express.Response
+    response: express.Response,
+    next: express.NextFunction
   ) => {
     const id = request.params.id;
     const post = await this.post.findById(id);
+
+    if (!post) {
+      return next(new PostNotFoundException(id));
+    }
 
     return response.send(post);
   };
 
   private modifyPost = async (
     request: express.Request,
-    response: express.Response
+    response: express.Response,
+    next: express.NextFunction
   ) => {
     const id = request.params.id;
     const postData: Post = request.body;
     const post = await this.post.findByIdAndUpdate(id, postData, { new: true });
+
+    if (!post) {
+      return next(new PostNotFoundException(id));
+    }
 
     return response.send(post);
   };
@@ -63,16 +84,17 @@ class PostsController implements Controller {
 
   private deletePost = async (
     request: express.Request,
-    response: express.Response
+    response: express.Response,
+    next: express.NextFunction
   ) => {
     const id = request.params.id;
     const deletedPost = await this.post.findByIdAndDelete(id);
 
-    if (deletedPost) {
-      response.sendStatus(200);
+    if (!deletedPost) {
+      return next(new PostNotFoundException(id));
     }
 
-    return response.sendStatus(404);
+    return response.sendStatus(200);
   };
 }
 
