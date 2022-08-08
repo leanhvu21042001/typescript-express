@@ -1,7 +1,11 @@
+import "dotenv/config";
+
 import App from "./app";
 import PostsController from "./posts/posts.controller";
+import { validateEnv } from "./utils/validateEnv";
 
-const port = 5000 || process.env.PORT;
-const app = new App([new PostsController()], port);
+validateEnv();
+
+const app = new App([new PostsController()]);
 
 app.listen();
